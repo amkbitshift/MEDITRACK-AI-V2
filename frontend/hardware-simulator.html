@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediTrack AI — ESP32 Hardware Lab & Digital Twin</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            medilavender: '#EEF0FB',
+            mediblue: '#2563EB',
+            mediindigo: '#4F46E5',
+            medislslate: '#0F172A',
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Inter, & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Healthcare Platform Stylesheet -->
+  <link rel="stylesheet" href="/static/css/custom.css">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #EEF0FB;
+      color: #0F172A;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Clinical Glassmorphism */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    }
+    /* Breadboard look */
+    .breadboard-bg {
+      background-color: #F8FAFC;
+      background-image: radial-gradient(rgba(148, 163, 184, 0.4) 1.5px, transparent 1.5px);
+      background-size: 18px 18px;
+    }
+    /* LED Glow Styles */
+    .led-green-glow {
+      box-shadow: 0 0 16px #10B981, 0 0 32px rgba(16, 185, 129, 0.5), inset 0 0 8px #A7F3D0;
+    }
+    .led-red-glow {
+      box-shadow: 0 0 16px #EF4444, 0 0 32px rgba(239, 68, 68, 0.5), inset 0 0 8px #FECACA;
+    }
+    @keyframes redLedBlink {
+      0%, 100% {
+        background-color: #EF4444 !important;
+        border-color: #FCA5A5 !important;
+        box-shadow: 0 0 20px #EF4444, 0 0 40px rgba(239, 68, 68, 0.6), inset 0 0 8px #FECACA !important;
+      }
+      50% {
+        background-color: #CBD5E1 !important;
+        border-color: #94A3B8 !important;
+        box-shadow: none !important;
+      }
+    }
+    .led-red-blinking {
+      animation: redLedBlink 0.3s ease-in-out infinite !important;
+    }
+    .led-off {
+      background: #CBD5E1 !important;
+      border-color: #94A3B8 !important;
+      box-shadow: none !important;
+    }
+    /* Tactile button press animation */
+    .tactile-btn {
+      transition: all 0.08s ease;
+      box-shadow: 0 5px 0 #CBD5E1, 0 8px 16px rgba(0, 0, 0, 0.12);
+    }
+    .tactile-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 #CBD5E1, 0 3px 6px rgba(0, 0, 0, 0.1);
+    }
+    /* Buzzer ripple waves */
+    @keyframes soundwave {
+      0% { transform: scale(1); opacity: 0.9; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+    .buzzer-wave {
+      animation: soundwave 0.8s ease-out infinite;
+    }
+    /* Terminal styling */
+    .crt-screen {
+      background: #020617;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.85);
+    }
+    /* Live pulse ring */
+    .pulse-ring {
+      animation: pulseGlow 1.8s infinite;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased bg-slate-50 selection:bg-indigo-500 selection:text-white">
+
+  <!-- ================= TOP FLOATING NAVIGATION BAR ================= -->
+  <header class="sticky top-0 z-40 px-4 lg:px-8 pt-3 pb-2">
+    <div class="glass-panel rounded-2xl px-5 py-3 flex items-center justify-between shadow-xs border border-slate-200/90">
+      
+      <!-- Left: Hospital Branding & Hardware Node Specs -->
+      <div class="flex items-center space-x-3.5">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-500/25 ring-2 ring-white">
+          <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-base font-extrabold tracking-tight text-slate-900 font-sans">MediTrack AI</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">ESP32 HARDWARE LAB</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">ESP32-WROOM-32D</span>
+          </div>
+          <div class="text-[11px] text-slate-500 font-medium flex items-center space-x-2 mt-0.5">
+            <span>St. Jude Metro AI Hospital</span>
+            <span class="text-slate-300">•</span>
+            <span class="text-emerald-600 font-bold flex items-center space-x-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>WiFi Connected: "Amshaaa shinigami"</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Status Badges -->
+      <div class="hidden xl:flex items-center space-x-2.5 text-xs">
+        <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 flex items-center space-x-2 font-mono shadow-2xs">
+          <span class="text-slate-400 font-medium">ESP32 Node IP:</span>
+          <span class="text-indigo-700 font-bold" id="header-ip">172.27.195.199</span>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 flex items-center space-x-2 font-mono shadow-2xs">
+          <span class="text-slate-400 font-medium">Baud:</span>
+          <span class="text-emerald-700 font-bold">115200</span>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 flex items-center space-x-2 font-mono shadow-2xs">
+          <span class="text-slate-400 font-medium">Backend Sync:</span>
+          <span id="backend-status-badge" class="text-emerald-700 font-bold flex items-center space-x-1.5">
+            <span id="backend-status-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span id="backend-status-text">ONLINE</span>
+          </span>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 flex items-center space-x-2 font-mono shadow-2xs">
+          <span class="text-slate-400 font-medium">WebSocket:</span>
+          <span id="ws-status-badge" class="text-emerald-700 font-bold flex items-center space-x-1.5">
+            <span id="ws-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="ws-status-text">CONNECTED</span>
+          </span>
+        </div>
+        <div id="hardware-mode-badge" class="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center space-x-1.5 font-mono text-xs font-bold text-emerald-800 shadow-2xs transition-all">
+          <span id="hardware-mode-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="hardware-mode-text">REAL HARDWARE (WI-FI) &amp; DEMO MODE</span>
+        </div>
+      </div>
+
+      <!-- Right Controls & Navigation -->
+      <div class="flex items-center space-x-2">
+        <button id="btn-sound-toggle" onclick="toggleSound()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition flex items-center space-x-1.5" title="Toggle Synthesized Audio Beeps">
+          <i data-lucide="volume-2" id="sound-icon" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span id="sound-text">Audio ON</span>
+        </button>
+
+        <button onclick="resetHardware()" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold shadow-2xs transition flex items-center space-x-1.5" title="Simulate Hardware RST Pin 27">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>RST ESP32</span>
+        </button>
+
+        <a href="/" class="btn-pill btn-pill-primary text-xs flex items-center space-x-1.5 shadow-xs">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+          <span>Hospital Dashboard</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= MAIN WORKSPACE ================= -->
+  <main class="flex-1 p-4 lg:p-6 max-w-[1700px] w-full mx-auto space-y-6">
+
+    <!-- ================= 1. WI-FI HARDWARE LIVE WORKING STATUS & TELEMETRY HUD ================= -->
+    <div class="glass-panel p-6 rounded-3xl border border-slate-200/90 space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-lg shadow-xs">
+            <i data-lucide="wifi" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-base font-extrabold text-slate-900">ESP32 Hardware Working Over Wi-Fi</h2>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span>ACTIVE WI-FI TELEMETRY</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Real-time status of physical microcontroller communicating via HTTP REST & WebSocket with St. Jude Metro Hospital.</p>
+          </div>
+        </div>
+
+        <!-- Sync Target IP & Ping -->
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-500 font-semibold font-mono">Server URL:</span>
+          <input type="text" id="input-server-url" value="" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono w-52 focus:outline-none focus:border-indigo-500 shadow-2xs" title="ESP32 SERVER_URL destination">
+          <button onclick="testServerConnection()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition flex items-center space-x-1">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+            <span>Ping WiFi</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Live Hardware Status Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: Wi-Fi Link -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
+            <span>Wi-Fi Network</span>
+            <span class="text-emerald-600 flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Connected</span></span>
+          </div>
+          <div class="text-sm font-extrabold text-slate-900 font-mono">Amshaaa shinigami</div>
+          <div class="text-xs text-slate-500 flex justify-between pt-1 border-t border-slate-100">
+            <span>Signal: <strong class="text-emerald-700 font-mono">-48 dBm</strong></span>
+            <span>Freq: <strong class="text-slate-700 font-mono">2.4 GHz</strong></span>
+          </div>
+        </div>
+
+        <!-- Card 2: Microcontroller Unit -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
+            <span>Hardware Node</span>
+            <span class="text-indigo-600 font-mono">DOIT DEVKIT</span>
+          </div>
+          <div class="text-sm font-extrabold text-slate-900 font-mono">ESP32-WROOM-32D</div>
+          <div class="text-xs text-slate-500 flex justify-between pt-1 border-t border-slate-100">
+            <span>Xtensa: <strong class="text-slate-700 font-mono">240 MHz</strong></span>
+            <span>Baud: <strong class="text-emerald-700 font-mono">115200</strong></span>
+          </div>
+        </div>
+
+        <!-- Card 3: Active Sensors Attached -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
+            <span>Peripherals</span>
+            <span class="text-emerald-600 font-bold">5 SENSORS ACTIVE</span>
+          </div>
+          <div class="text-xs font-bold text-slate-800">MFRC522 RFID • HC-SR501 PIR</div>
+          <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+            Dual LEDs (D25/D26) • Buzzer (D14) • 2 Buttons
+          </div>
+        </div>
+
+        <!-- Card 4: Last WiFi Packet Time -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
+            <span>Last Telemetry Sync</span>
+            <span class="text-indigo-600 font-bold" id="wifi-last-time">Just now</span>
+          </div>
+          <div class="text-sm font-extrabold text-slate-900 font-mono" id="wifi-last-equipment">WC-007 (Wheelchair)</div>
+          <div class="text-xs text-slate-500 flex justify-between pt-1 border-t border-slate-100">
+            <span>Status: <strong class="text-emerald-700 font-bold" id="wifi-last-status">AVAILABLE</strong></span>
+            <span>ESP32 Node: <strong class="text-indigo-700 font-mono" id="card-node-ip">172.27.195.199</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 2. HOW THE HARDWARE WORKS: 4 FUNCTIONAL REAL-TIME WORKFLOWS ================= -->
+    <div class="glass-panel p-6 rounded-3xl border border-slate-200/90 space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+          <h3 class="text-sm font-extrabold text-slate-900 tracking-wide uppercase">How The Hardware Operates Over Wi-Fi (Interactive Functional Steps)</h3>
+        </div>
+        <span class="text-xs text-slate-500">Click any workflow to execute real functional round-trip test</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Step 1: RFID Tap -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 space-y-3 shadow-2xs flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">WORKFLOW 1</span>
+              <span class="text-lg">💳</span>
+            </div>
+            <h4 class="font-extrabold text-slate-900 text-xs">RFID Asset Identification</h4>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              When an RFID tag touches the RC522 antenna, the ESP32 reads its 4-byte UID, maps it to the asset, transmits HTTP POST over Wi-Fi, and turns the Green LED solid ON.
+            </p>
+          </div>
+          <button onclick="simulateScanTag('10 0D 71 5C', 'WHEELCHAIR', 'WC-007')" class="w-full py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+            <span>Test Tap (WC-007)</span>
+          </button>
+        </div>
+
+        <!-- Step 2: PIR Motion Auto-Start -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 space-y-3 shadow-2xs flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">WORKFLOW 2</span>
+              <span class="text-lg">🏃</span>
+            </div>
+            <h4 class="font-extrabold text-slate-900 text-xs">PIR Motion Auto-Engagement</h4>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              If PIR detects continuous patient movement on GPIO 32 for 10 seconds, ESP32 sounds the piezo buzzer, sets status to <strong>IN_USE</strong>, and starts the 30-min usage stopwatch.
+            </p>
+          </div>
+          <button onclick="toggleContinuousMotion()" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+            <span>Trigger 10s PIR Motion</span>
+          </button>
+        </div>
+
+        <!-- Step 3: Tactile Pushbuttons -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 space-y-3 shadow-2xs flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">WORKFLOW 3</span>
+              <span class="text-lg">🔘</span>
+            </div>
+            <h4 class="font-extrabold text-slate-900 text-xs">Pushbutton Session Control</h4>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              Pressing Switch 1 (GPIO 33) starts or terminates clinical sessions. On END, Red LED pulses for 1s and buzzer beeps twice. Switch 2 (GPIO 13) pauses into Temporary Hold.
+            </p>
+          </div>
+          <button onclick="pressMainButton()" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+            <span>Press Switch 1 (D33)</span>
+          </button>
+        </div>
+
+        <!-- Step 4: Storage Verification -->
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/90 space-y-3 shadow-2xs flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">WORKFLOW 4</span>
+              <span class="text-lg">♿</span>
+            </div>
+            <h4 class="font-extrabold text-slate-900 text-xs">Clustered Storage Auto-Verify</h4>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              When WC-007 docks at Radiology Storage, a 120-second countdown runs. If left undisturbed, the backend automatically verifies it back to <strong>AVAILABLE</strong> status.
+            </p>
+          </div>
+          <button onclick="simulateWheelchairStorageReturn()" class="w-full py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1">
+            <span>Simulate Storage Dock</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 3. MAIN 2-COLUMN HARDWARE WORKBENCH ================= -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+      <!-- ================= LEFT COLUMN: VIRTUAL BREADBOARD & SCHEMATIC (7 COLS) ================= -->
+      <div class="xl:col-span-7 space-y-6">
+
+        <!-- Virtual Breadboard Workbench Card -->
+        <div class="glass-panel rounded-3xl p-6 border border-slate-200/90 relative overflow-hidden space-y-5">
+          
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+              <h2 class="text-sm font-extrabold text-slate-900 tracking-wide uppercase font-sans">Virtual Breadboard & Circuit Schematic</h2>
+            </div>
+            <div class="flex items-center space-x-2 text-xs font-mono text-slate-500">
+              <span class="font-bold text-slate-700">3.3V DC LOGIC</span>
+              <span class="text-slate-300">|</span>
+              <span class="text-indigo-600 font-bold">GND COMMON</span>
+            </div>
+          </div>
+
+          <!-- Interactive Breadboard Surface -->
+          <div class="breadboard-bg rounded-2xl p-6 border border-slate-200 shadow-inner relative space-y-6">
+
+            <!-- Hardware Instruction Alert Banner (In-Use / Temporary Waiting Blocked) -->
+            <div id="hw-instruction-banner" class="hidden transition-all duration-300 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 flex items-center space-x-3.5 shadow-md">
+              <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center flex-shrink-0 animate-bounce">
+                <i data-lucide="alert-octagon" class="w-5 h-5 text-rose-600"></i>
+              </div>
+              <div class="flex-1">
+                <div class="text-[10px] font-mono font-bold tracking-wider text-rose-600 uppercase flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                  <span>FIRMWARE OPERATING INSTRUCTION</span>
+                </div>
+                <div id="hw-instruction-text" class="text-sm font-extrabold text-rose-950 mt-0.5 leading-snug">
+                  Equipment is currently in use. End usage before temporary waiting.
+                </div>
+                <div class="text-[10px] text-rose-700 font-mono mt-0.5">
+                  RED LED BLINKING ON PIN D25 • Switch 1 (D33) required to end active clinical session
+                </div>
+              </div>
+              <button onclick="dismissHwInstructionBanner()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-white hover:bg-rose-100 text-rose-800 border border-rose-200 shadow-2xs">
+                Dismiss
+              </button>
+            </div>
+
+            <!-- Row 1: ESP32 Chip & Dual Status LEDs & Buzzer -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+              
+              <!-- ESP32 Dev Board Graphic -->
+              <div class="lg:col-span-6 bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-lg relative">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-rose-500" title="3V3 Power LED"></span>
+                    <span id="esp32-tx-led" class="w-2 h-2 rounded-full bg-sky-400" title="TX/RX Activity LED"></span>
+                    <span class="text-[10px] font-mono text-slate-300 font-bold uppercase">DOIT ESP32 DEVKIT V1</span>
+                  </div>
+                  <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 font-bold">XTENSA 240MHz</span>
+                </div>
+                
+                <!-- Chip Body Graphic -->
+                <div class="bg-black/80 rounded-xl p-3 border border-slate-800 flex items-center justify-between font-mono text-[10px]">
+                  <div class="space-y-1 text-slate-400 text-left">
+                    <div><span class="text-cyan-400 font-bold">3V3</span> [PWR]</div>
+                    <div><span class="text-slate-500">GND</span> [COM]</div>
+                    <div><span class="text-amber-400">D5</span>  (SS/SDA)</div>
+                    <div><span class="text-amber-400">D18</span> (SCK)</div>
+                    <div><span class="text-amber-400">D19</span> (MISO)</div>
+                    <div><span class="text-amber-400">D23</span> (MOSI)</div>
+                  </div>
+                  <div class="text-center px-3 py-2 bg-slate-950 rounded-lg border border-slate-800 shadow-inner">
+                    <div class="text-xs font-extrabold text-white">ESP32</div>
+                    <div class="text-[9px] text-indigo-400 font-bold">WROOM-32D</div>
+                    <div class="text-[8px] text-slate-500 mt-0.5">FCC ID: 2AC7Z</div>
+                  </div>
+                  <div class="space-y-1 text-slate-400 text-right">
+                    <div>(RST) <span class="text-rose-400">D27</span></div>
+                    <div>(RED_LED) <span class="text-rose-400">D25</span></div>
+                    <div>(GRN_LED) <span class="text-emerald-400">D26</span></div>
+                    <div>(BUZZER) <span class="text-purple-400">D14</span></div>
+                    <div>(BTN1) <span class="text-sky-400">D33</span></div>
+                    <div>(BTN2) <span class="text-indigo-400">D13</span></div>
+                    <div>(PIR) <span class="text-emerald-400">D32</span></div>
+                  </div>
+                </div>
+
+                <!-- On-Board WiFi Signal Graphic -->
+                <div class="mt-2.5 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                  <div class="flex items-center space-x-1.5 text-slate-300">
+                    <i data-lucide="wifi" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span class="font-mono text-slate-300 font-semibold">Amshaaa shinigami</span>
+                  </div>
+                  <span class="text-[10px] text-emerald-400 font-mono font-bold">-48 dBm (Strong)</span>
+                </div>
+              </div>
+
+              <!-- Dual LEDs & Buzzer Unit -->
+              <div class="lg:col-span-6 grid grid-cols-3 gap-3">
+                
+                <!-- GREEN LED (Pin 26) -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col items-center justify-center text-center">
+                  <div class="text-[10px] font-mono font-bold text-slate-500 mb-1">GREEN LED (D26)</div>
+                  <div id="led-green" class="w-10 h-10 rounded-full bg-emerald-500 led-green-glow border-2 border-emerald-300 transition-all duration-200 my-1"></div>
+                  <span id="led-green-label" class="text-[11px] font-bold text-emerald-700 font-mono mt-1">HIGH (ON)</span>
+                  <span class="text-[9px] text-slate-400 mt-0.5">Ready / Active</span>
+                </div>
+
+                <!-- RED LED (Pin 25) -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col items-center justify-center text-center">
+                  <div class="text-[10px] font-mono font-bold text-slate-500 mb-1">RED LED (D25)</div>
+                  <div id="led-red" class="w-10 h-10 rounded-full bg-slate-200 led-off border-2 border-slate-300 transition-all duration-200 my-1"></div>
+                  <span id="led-red-label" class="text-[11px] font-bold text-slate-500 font-mono mt-1">LOW (OFF)</span>
+                  <span class="text-[9px] text-slate-400 mt-0.5">End Pulse (1s)</span>
+                </div>
+
+                <!-- PIEZO BUZZER (Pin 14) -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col items-center justify-center text-center relative overflow-hidden">
+                  <div class="text-[10px] font-mono font-bold text-slate-500 mb-1">BUZZER (D14)</div>
+                  <div class="relative my-1">
+                    <div id="buzzer-wave" class="absolute inset-0 rounded-full bg-purple-500/30 hidden"></div>
+                    <div id="buzzer-body" class="w-10 h-10 rounded-full bg-slate-100 border-2 border-purple-300 flex items-center justify-center text-slate-600 transition-all">
+                      <i data-lucide="bell" class="w-4 h-4 text-purple-600"></i>
+                    </div>
+                  </div>
+                  <span id="buzzer-label" class="text-[11px] font-bold text-slate-600 font-mono mt-1">IDLE</span>
+                  <span class="text-[9px] text-slate-400 mt-0.5">2.4 kHz Tone</span>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Row 2: RFID RC522 Reader Module & Interactive Card Deck -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                  <div class="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-extrabold text-slate-900">MFRC522 RFID Sensor (13.56 MHz SPI)</h3>
+                    <p class="text-[10px] text-slate-500 font-mono">Pins: SS=5, RST=27, SCK=18, MISO=19, MOSI=23</p>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-[11px] text-indigo-700 font-mono bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 font-bold">
+                    STATUS: <span id="rfid-status-text" class="text-emerald-700">READY TO SCAN</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- RFID Reader Surface / Drop Target -->
+              <div id="rfid-drop-zone" class="p-4 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
+                <div class="flex items-center space-x-3.5">
+                  <div class="relative">
+                    <div id="rfid-pulse" class="w-12 h-12 rounded-2xl border-2 border-indigo-300 flex items-center justify-center bg-white shadow-xs">
+                      <i data-lucide="radio" class="w-6 h-6 text-indigo-600"></i>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-xs font-black text-slate-900" id="rfid-active-readout">No Card Present</div>
+                    <div class="text-[10px] text-slate-500 font-mono" id="rfid-uid-readout">Click or tap any RFID tag below to simulate RC522 scan</div>
+                  </div>
+                </div>
+
+                <div class="text-right">
+                  <span class="text-[10px] font-mono text-slate-400 block font-medium">Current Selected:</span>
+                  <div class="text-xs font-extrabold text-indigo-700 font-mono" id="rfid-selected-equipment">NONE</div>
+                </div>
+              </div>
+
+              <!-- Interactive RFID Cards Grid -->
+              <div>
+                <div class="text-[11px] font-bold text-slate-600 mb-2.5 uppercase tracking-wide flex items-center justify-between">
+                  <span>Registered Hospital Equipment RFID Tags (Click to Tap):</span>
+                  <span class="text-[10px] text-indigo-600 font-bold">Matches Hardware Firmware Exactly</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  
+                  <!-- Tag 1: WC-007 Wheelchair & Waypoint 1 (Dock 0m) -->
+                  <button onclick="simulateScanTag('10 0D 71 5C', 'WHEELCHAIR', 'WC-007')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-indigo-50/60 border border-slate-200/90 hover:border-indigo-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-indigo-100">
+                      🦽
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-indigo-700 truncate">WHEELCHAIR (0.0 m)</div>
+                      <div class="text-[10px] font-mono text-indigo-600 font-bold">10 0D 71 5C</div>
+                      <div class="text-[9px] text-slate-500 font-mono">Waypoint 1: Emergency Dock</div>
+                    </div>
+                  </button>
+
+                  <!-- Tag 2: Waypoint 2 (Corridor Junction 15m) -->
+                  <button onclick="simulateScanTag('40 0D 0F 58', 'WHEELCHAIR', 'WC-007')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-blue-50/60 border border-slate-200/90 hover:border-blue-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-blue-100">
+                      📍
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-blue-700 truncate">CORRIDOR WAYPOINT (15m)</div>
+                      <div class="text-[10px] font-mono text-blue-600 font-bold">40 0D 0F 58</div>
+                      <div class="text-[9px] text-slate-500 font-mono">Waypoint 2: Central Corridor</div>
+                    </div>
+                  </button>
+
+                  <!-- Tag 3: Waypoint 3 (Radiology Suite 30m) -->
+                  <button onclick="simulateScanTag('30 94 2B 58', 'WHEELCHAIR', 'WC-007')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-cyan-50/60 border border-slate-200/90 hover:border-cyan-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-cyan-100">
+                      🏥
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-cyan-700 truncate">RADIOLOGY WAYPOINT (30m)</div>
+                      <div class="text-[10px] font-mono text-cyan-600 font-bold">30 94 2B 58</div>
+                      <div class="text-[9px] text-slate-500 font-mono">Waypoint 3: Radiology Suite</div>
+                    </div>
+                  </button>
+
+                  <!-- Tag 4: Waypoint 4 (ICU Recovery Ward 45m) -->
+                  <button onclick="simulateScanTag('BD 70 00 02', 'STRETCHER', 'ST-003')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-amber-50/60 border border-slate-200/90 hover:border-amber-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-amber-100">
+                      🛏️
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-amber-700 truncate">ICU RECOVERY (45m)</div>
+                      <div class="text-[10px] font-mono text-amber-600 font-bold">BD 70 00 02</div>
+                      <div class="text-[9px] text-slate-500 font-mono">Waypoint 4: ICU / Stretcher</div>
+                    </div>
+                  </button>
+
+                  <!-- Tag 5: INF-03 Infusion Pump -->
+                  <button onclick="simulateScanTag('21 2F 7B 69', 'INFUSION PUMP', 'INF-03')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-emerald-50/60 border border-slate-200/90 hover:border-emerald-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-emerald-100">
+                      💉
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-emerald-700 truncate">INFUSION PUMP (22.5m)</div>
+                      <div class="text-[10px] font-mono text-emerald-600 font-bold">21 2F 7B 69</div>
+                      <div class="text-[9px] text-slate-400 font-mono">ID: INF-03 • General Ward</div>
+                    </div>
+                  </button>
+
+                  <!-- Tag 6: Unknown Tag (Rejection Test) -->
+                  <button onclick="simulateScanTag('FF FF FF FF', '', '')" class="rfid-card-btn p-3 rounded-2xl bg-white hover:bg-rose-50/60 border border-slate-200/90 hover:border-rose-400 text-left transition shadow-xs flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-base group-hover:scale-110 transition border border-rose-100">
+                      ❓
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-black text-slate-900 group-hover:text-rose-700 truncate">UNKNOWN CARD</div>
+                      <div class="text-[10px] font-mono text-rose-600 font-bold">FF FF FF FF</div>
+                      <div class="text-[9px] text-slate-400 font-mono">Tests Rejection Logic</div>
+                    </div>
+                  </button>
+
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Row 3: PIR Motion Sensor (10s timer) & Tactile Pushbuttons -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+              <!-- PIR Motion Sensor Module (Pin 32) -->
+              <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-3.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <i data-lucide="eye" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h3 class="text-xs font-extrabold text-slate-900">HC-SR501 PIR Motion Sensor</h3>
+                      <p class="text-[10px] text-slate-500 font-mono">Pin: D32 • Required: 10s Continuous Motion</p>
+                    </div>
+                  </div>
+                  <span id="pir-pin-level" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold">
+                    PIN: LOW
+                  </span>
+                </div>
+
+                <!-- 10-Second Progress Gauge -->
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-600 font-semibold">Auto-Start Motion Timer:</span>
+                    <span id="pir-timer-readout" class="font-mono text-indigo-700 font-bold">0.0s / 10.0s</span>
+                  </div>
+                  <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                    <div id="pir-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 w-0 transition-all duration-100"></div>
+                  </div>
+                </div>
+
+                <!-- Interactive Motion Simulation Controls -->
+                <div class="flex items-center space-x-3 pt-1">
+                  <!-- Hold To Move Button -->
+                  <button id="btn-pir-hold" class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold transition flex items-center justify-center space-x-2 select-none shadow-xs">
+                    <i data-lucide="hand" class="w-4 h-4"></i>
+                    <span>Hold For Motion (10s)</span>
+                  </button>
+
+                  <!-- Toggle Continuous Motion Switch -->
+                  <button id="btn-pir-toggle" onclick="toggleContinuousMotion()" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition">
+                    Toggle Continuous
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pushbuttons Unit (Button Pin 33 & Temp Pin 13) -->
+              <div class="lg:col-span-5 grid grid-cols-2 gap-3">
+
+                <!-- Switch 1: Main Button (Pin 33) -->
+                <div class="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-xs flex flex-col items-center justify-between text-center">
+                  <div>
+                    <div class="text-[10px] font-mono font-bold text-slate-400 uppercase">SWITCH 1 (D33)</div>
+                    <div class="text-xs font-extrabold text-slate-900 mt-0.5">START / END</div>
+                    <div class="text-[9px] text-slate-500 font-medium">Main Toggle</div>
+                  </div>
+
+                  <!-- Tactile Button -->
+                  <button onclick="pressMainButton()" id="btn-main-hardware" class="tactile-btn my-2 w-14 h-14 rounded-full bg-gradient-to-b from-sky-400 to-blue-600 border-2 border-white flex items-center justify-center text-white active:bg-sky-500 shadow-md">
+                    <i data-lucide="power" class="w-6 h-6"></i>
+                  </button>
+
+                  <span class="text-[9px] font-mono text-slate-500 font-semibold">INPUT_PULLUP</span>
+                </div>
+
+                <!-- Switch 2: Temporary Waiting Button (Pin 13) -->
+                <div class="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-xs flex flex-col items-center justify-between text-center">
+                  <div>
+                    <div class="text-[10px] font-mono font-bold text-slate-400 uppercase">SWITCH 2 (D13)</div>
+                    <div class="text-xs font-extrabold text-slate-900 mt-0.5">TEMP PAUSE</div>
+                    <div class="text-[9px] text-slate-500 font-medium">Wait Toggle</div>
+                  </div>
+
+                  <!-- Tactile Button -->
+                  <button onclick="pressTempButton()" id="btn-temp-hardware" class="tactile-btn my-2 w-14 h-14 rounded-full bg-gradient-to-b from-amber-400 to-amber-600 border-2 border-white flex items-center justify-center text-slate-950 active:bg-amber-500 shadow-md">
+                    <i data-lucide="pause" class="w-6 h-6"></i>
+                  </button>
+
+                  <span class="text-[9px] font-mono text-slate-500 font-semibold">INPUT_PULLUP</span>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Bottom Microcontroller Pin Diagnostics Strip -->
+          <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-slate-500">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-700">GPIO Matrix:</span>
+              <span id="pin-d5" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D5: HIGH</span>
+              <span id="pin-d27" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D27: HIGH</span>
+              <span id="pin-d26" class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">D26: HIGH</span>
+              <span id="pin-d25" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D25: LOW</span>
+              <span id="pin-d14" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D14: LOW</span>
+              <span id="pin-d33" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D33: HIGH</span>
+              <span id="pin-d13" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D13: HIGH</span>
+              <span id="pin-d32" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200">D32: LOW</span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-indigo-700 font-bold">
+              <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+              <span>Hardware Loop: 100 Hz</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Arduino C++ Firmware Reference Accordion -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-200/90 shadow-xs">
+          <details class="group">
+            <summary class="flex items-center justify-between cursor-pointer list-none text-xs font-bold text-slate-700 hover:text-indigo-600">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="code-2" class="w-4 h-4 text-indigo-600"></i>
+                <span>View Exact Flashed ESP32 C++ Sketch</span>
+              </div>
+              <span class="text-indigo-600 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="mt-3 pt-3 border-t border-slate-100">
+              <pre class="bg-slate-900 p-4 rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-64 leading-relaxed border border-slate-800 shadow-inner">
+#include &lt;SPI.h&gt;
+#include &lt;MFRC522.h&gt;
+#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+
+#define SS_PIN 5
+#define RST_PIN 27
+#define RED_LED 25
+#define GREEN_LED 26
+#define BUZZER 14
+#define BUTTON 33
+#define TEMP_BUTTON 13
+#define PIR_PIN 32
+
+const char* ssid = "Amshaaa shinigami";
+const char* password = "ameyajosechazhoor";
+const char* SERVER_URL = "http://172.27.195.51:8000";
+
+// Max usage timer: 30 minutes
+const unsigned long MAX_USE_TIME = 30UL * 60UL * 1000UL;
+// Required PIR motion: 10 seconds continuous
+const unsigned long REQUIRED_MOTION_TIME = 10000;
+              </pre>
+            </div>
+          </details>
+        </div>
+
+      </div>
+
+      <!-- ================= RIGHT COLUMN: TELEMETRY, SERIAL MONITOR & LIVE WI-FI PACKETS (5 COLS) ================= -->
+      <div class="xl:col-span-5 space-y-6">
+
+        <!-- Active Equipment State & Usage Timer Card -->
+        <div class="glass-panel rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+              <h2 class="text-xs font-extrabold text-slate-900 tracking-wide uppercase">Real-Time Firmware State</h2>
+            </div>
+            <span id="badge-equipment-status" class="px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+              IDLE (NO CARD)
+            </span>
+          </div>
+
+          <!-- Active Equipment Info Box -->
+          <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center justify-between">
+            <div class="flex items-center space-x-3.5">
+              <div id="state-icon" class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center font-bold text-xl shadow-2xs">
+                —
+              </div>
+              <div>
+                <div class="text-sm font-black text-slate-900" id="state-equipment-name">No Equipment Selected</div>
+                <div class="text-[11px] font-mono text-indigo-600 font-semibold" id="state-equipment-id">Scan RFID Tag to begin</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-slate-400 font-mono font-medium">Location:</div>
+              <div class="text-xs font-bold text-slate-800" id="state-equipment-location">—</div>
+            </div>
+          </div>
+
+          <!-- Usage Duration Stopwatch -->
+          <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center justify-between">
+            <div>
+              <div class="text-[10px] text-slate-400 font-mono font-bold uppercase">Current Usage Session:</div>
+              <div class="text-2xl font-black font-mono text-slate-900 mt-0.5 tracking-tight" id="usage-stopwatch">00:00:00</div>
+              <div class="text-[10px] text-slate-500">Max limit: 30 minutes (1800s)</div>
+            </div>
+            <div class="flex flex-col space-y-1.5">
+              <button onclick="fastForwardUsage()" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold shadow-2xs transition flex items-center space-x-1" title="Test 30-minute auto timeout">
+                <i data-lucide="fast-forward" class="w-3.5 h-3.5"></i>
+                <span>Fast-Forward 30m</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Live Wi-Fi Packet Activity Feed (Inspector) -->
+        <div class="glass-panel rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-3.5">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="radio" class="w-4 h-4 text-indigo-600"></i>
+              <h2 class="text-xs font-extrabold text-slate-900 tracking-wide uppercase">Live Wi-Fi Packet Stream</h2>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold" id="wifi-packet-count">0 Packets</span>
+          </div>
+
+          <div class="text-[11px] text-slate-500">
+            Live stream of HTTP REST packets sent between physical ESP32 and backend server via Wi-Fi:
+          </div>
+
+          <div id="wifi-packet-feed" class="space-y-2 max-h-48 overflow-y-auto font-mono text-[11px]">
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200/90 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">RX POST</span>
+                <span class="text-slate-800 font-bold">/api/esp32/update</span>
+              </div>
+              <span class="text-emerald-700 font-bold">200 OK</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Movement Odometry & Mini Hospital Map -->
+        <div class="glass-panel rounded-3xl p-5 border border-slate-200/90 shadow-xs space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="navigation" class="w-4 h-4 text-blue-600 animate-pulse"></i>
+              <h2 class="text-xs font-extrabold text-slate-900 tracking-wide uppercase">Real-Time Transit & Distance Map</h2>
+              <span id="map-motion-badge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold">STATIONARY</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button id="btn-toggle-movement" onclick="toggleSimulatedMovement()" class="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[10px] border border-blue-200 transition flex items-center space-x-1">
+                <i data-lucide="play" class="w-3 h-3"></i>
+                <span id="btn-movement-text">Simulate Moving</span>
+              </button>
+              <button onclick="resetDistanceOdometry()" class="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px]" title="Reset Distance">
+                <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Numerical Distance & Speed HUD -->
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="p-2.5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Real Distance</span>
+              <div class="text-base font-black text-slate-900 font-mono mt-0.5">
+                <span id="hud-distance-val">0.0</span> <span class="text-[10px] text-slate-500 font-normal">m</span>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Wi-Fi Signal</span>
+              <div class="text-base font-black text-cyan-600 font-mono mt-0.5">
+                <span id="hud-rssi-val">-42</span> <span class="text-[10px] text-slate-500 font-normal">dBm</span>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Live Speed</span>
+              <div class="text-base font-black text-blue-600 font-mono mt-0.5">
+                <span id="hud-speed-val">0.0</span> <span class="text-[10px] text-slate-500 font-normal">m/s</span>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Active Ward</span>
+              <div id="hud-zone-val" class="text-[11px] font-extrabold text-slate-800 truncate mt-1">Emergency Ward</div>
+            </div>
+          </div>
+
+          <!-- Small SVG Hospital Blueprint Mini-Map -->
+          <div class="relative bg-slate-900 rounded-2xl p-3 border border-slate-800 overflow-hidden shadow-inner">
+            <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1.5">
+              <span class="flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>HOSPITAL BLUEPRINT • LEVEL 1</span>
+              </span>
+              <span id="map-coords-badge" class="text-emerald-400 font-bold">X: 65 • Y: 80</span>
+            </div>
+
+            <!-- SVG Floorplan -->
+            <svg id="hospital-mini-map-svg" viewBox="0 0 460 160" class="w-full h-36 select-none">
+              <defs>
+                <pattern id="mini-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+                </pattern>
+                <linearGradient id="path-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#3b82f6" />
+                  <stop offset="50%" stop-color="#6366f1" />
+                  <stop offset="100%" stop-color="#10b981" />
+                </linearGradient>
+              </defs>
+              <rect width="460" height="160" fill="url(#mini-grid)" rx="8" />
+
+              <!-- Hospital Wards Zones -->
+              <!-- Emergency Ward (Left) -->
+              <rect x="15" y="25" width="105" height="110" rx="10" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.85" />
+              <text x="67" y="70" fill="#fda4af" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">EMERGENCY</text>
+              <text x="67" y="85" fill="#94a3b8" font-size="8" font-family="sans-serif" text-anchor="middle">Bay 1-4 • Dock A</text>
+
+              <!-- Central Corridor (Center) -->
+              <rect x="135" y="55" width="190" height="50" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5" opacity="0.9" />
+              <text x="230" y="84" fill="#93c5fd" font-size="9" font-weight="bold" font-family="sans-serif" text-anchor="middle">CLINICAL TRANSIT CORRIDOR</text>
+
+              <!-- Radiology Suite (Right) -->
+              <rect x="340" y="25" width="105" height="110" rx="10" fill="#1e293b" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.85" />
+              <text x="392" y="70" fill="#67e8f9" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">RADIOLOGY</text>
+              <text x="392" y="85" fill="#94a3b8" font-size="8" font-family="sans-serif" text-anchor="middle">CT • MRI • X-Ray</text>
+
+              <!-- Transit Path Track -->
+              <path id="transit-track" d="M 65 80 L 140 80 L 320 80 L 390 80" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="6" stroke-linecap="round" />
+              <path id="transit-track-active" d="M 65 80 L 65 80" fill="none" stroke="url(#path-gradient)" stroke-width="4" stroke-linecap="round" />
+
+              <!-- Waypoint Dots -->
+              <circle cx="65" cy="80" r="4" fill="#f43f5e" />
+              <circle cx="140" cy="80" r="3" fill="#64748b" />
+              <circle cx="230" cy="80" r="3" fill="#64748b" />
+              <circle cx="320" cy="80" r="3" fill="#64748b" />
+              <circle cx="390" cy="80" r="4" fill="#06b6d4" />
+
+              <!-- Distance Markers -->
+              <text x="65" y="105" fill="#64748b" font-size="8" font-family="monospace" text-anchor="middle">0m</text>
+              <text x="230" y="68" fill="#64748b" font-size="8" font-family="monospace" text-anchor="middle">15m</text>
+              <text x="390" y="105" fill="#64748b" font-size="8" font-family="monospace" text-anchor="middle">30m</text>
+
+              <!-- Moving Equipment Marker -->
+              <g id="mini-map-marker" transform="translate(65, 80)">
+                <circle r="12" fill="none" stroke="#10b981" stroke-width="1.5" class="animate-ping" opacity="0.75" />
+                <circle r="7" fill="#10b981" stroke="#ffffff" stroke-width="2" />
+                <text y="3" fill="#ffffff" font-size="7" font-weight="bold" font-family="sans-serif" text-anchor="middle">W</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Live Serial Monitor (115200 Baud Terminal) -->
+        <div class="glass-panel rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-3.5">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="terminal" class="w-4 h-4 text-emerald-600"></i>
+              <h2 class="text-xs font-extrabold text-slate-900 tracking-wide uppercase">Arduino Serial Monitor</h2>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">115200 BAUD</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button onclick="clearSerialConsole()" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-[11px] transition" title="Clear Console">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="copySerialLog()" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-[11px] transition" title="Copy Log">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Console Terminal Window -->
+          <div id="serial-terminal" class="crt-screen rounded-2xl p-4 font-mono text-[11px] text-emerald-400 h-64 overflow-y-auto space-y-1 scroll-smooth">
+            <!-- Dynamically populated with firmware prints -->
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 font-mono">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="chk-autoscroll" checked class="rounded border-slate-300 text-indigo-600 focus:ring-0">
+              <span>Auto-scroll to bottom</span>
+            </label>
+            <span id="serial-line-count">Lines: 0</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================= VIRTUAL HARDWARE SIMULATION CONTROLLER JAVASCRIPT ================= -->
+  <script>
+    // State Store matching ESP32 firmware exact variables
+    const hardware = {
+      selectedEquipment: "",
+      selectedId: "",
+      selectedUid: "",
+      nodeIp: "172.27.195.199",
+      equipmentInUse: false,
+      temporarilyWaiting: false,
+      lastButtonState: true,     // HIGH (PULLUP)
+      lastTempButtonState: true, // HIGH (PULLUP)
+      usageStartTime: 0,
+      usageTimerInterval: null,
+      motionTimerRunning: false,
+      motionStartTime: 0,
+      motionInterval: null,
+      isContinuousMotion: false,
+      audioMuted: false,
+      audioCtx: null,
+      packetCount: 0,
+      REQUIRED_MOTION_TIME: 10000, // 10 seconds
+      MAX_USE_TIME: 30 * 60 * 1000 // 30 minutes
+    };
+
+    // Auto-detect server base URL
+    const SERVER_URL = window.location.origin;
+
+    // --- Real-Time Movement Odometry & Mini Hospital Map State ---
+    const odometry = {
+      isMoving: false,
+      distanceMeters: 0.0,
+      rssi: -42,
+      speedMps: 0.0,
+      startPosX: 65,
+      endPosX: 390,
+      currentX: 65,
+      currentY: 80,
+      moveInterval: null,
+      lastLogTime: 0
+    };
+
+    function updateOdometryUI() {
+      const distEl = document.getElementById('hud-distance-val');
+      const rssiEl = document.getElementById('hud-rssi-val');
+      const speedEl = document.getElementById('hud-speed-val');
+      const zoneEl = document.getElementById('hud-zone-val');
+      const badgeEl = document.getElementById('map-motion-badge');
+      const coordsEl = document.getElementById('map-coords-badge');
+      const markerEl = document.getElementById('mini-map-marker');
+      const trackActive = document.getElementById('transit-track-active');
+      const btnText = document.getElementById('btn-movement-text');
+
+      if (distEl) distEl.textContent = odometry.distanceMeters.toFixed(1);
+      if (rssiEl) rssiEl.textContent = odometry.rssi || -42;
+      if (speedEl) speedEl.textContent = (odometry.isMoving ? odometry.speedMps : 0.0).toFixed(1);
+
+      // Determine current clinical zone based on position
+      let zoneName = "Emergency Ward (Dock A)";
+      if (odometry.currentX > 320) {
+        zoneName = "Radiology Suite (CT/MRI)";
+      } else if (odometry.currentX > 130) {
+        zoneName = "Central Transit Corridor";
+      }
+      if (zoneEl) zoneEl.textContent = zoneName;
+
+      if (badgeEl) {
+        if (odometry.isMoving) {
+          badgeEl.textContent = "IN TRANSIT";
+          badgeEl.className = "text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold animate-pulse";
+        } else {
+          badgeEl.textContent = "STATIONARY";
+          badgeEl.className = "text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold";
+        }
+      }
+
+      if (btnText) {
+        btnText.textContent = odometry.isMoving ? "Pause Moving" : "Simulate Moving";
+      }
+
+      if (coordsEl) coordsEl.textContent = `X: ${Math.round(odometry.currentX)} • Y: 80`;
+
+      if (markerEl) {
+        markerEl.setAttribute('transform', `translate(${odometry.currentX.toFixed(1)}, 80)`);
+      }
+      if (trackActive) {
+        trackActive.setAttribute('d', `M 65 80 L ${odometry.currentX.toFixed(1)} 80`);
+      }
+    }
+
+    function startMoving() {
+      odometry.isMoving = true;
+      updateOdometryUI();
+    }
+
+    function stopMoving() {
+      odometry.isMoving = false;
+      if (odometry.moveInterval) {
+        clearInterval(odometry.moveInterval);
+        odometry.moveInterval = null;
+      }
+      updateOdometryUI();
+    }
+
+    function toggleSimulatedMovement() {
+      // Toggle for purely manual testing if desired
+      if (odometry.isMoving) {
+        stopMoving();
+      } else {
+        startMoving();
+      }
+    }
+
+    function resetDistanceOdometry() {
+      stopMoving();
+      odometry.distanceMeters = 0.0;
+      odometry.speedMps = 0.0;
+      odometry.steps = 0;
+      odometry.currentX = odometry.startPosX;
+      updateOdometryUI();
+    }
+
+    // --- Web Audio API Synthesizer (Realistic Piezo Beeps & Tactile Clicks) ---
+    function initAudio() {
+      if (!hardware.audioCtx) {
+        hardware.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playBeep(freq = 2400, durationMs = 300) {
+      if (hardware.audioMuted) return;
+      try {
+        initAudio();
+        const osc = hardware.audioCtx.createOscillator();
+        const gain = hardware.audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, hardware.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, hardware.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, hardware.audioCtx.currentTime + (durationMs / 1000));
+        osc.connect(gain);
+        gain.connect(hardware.audioCtx.destination);
+        osc.start();
+        osc.stop(hardware.audioCtx.currentTime + (durationMs / 1000));
+      } catch (e) {
+        console.warn('Audio play error:', e);
+      }
+    }
+
+    function playBuzzerStart() {
+      visualizeBuzzer(300);
+      playBeep(2400, 300);
+    }
+
+    function playBuzzerEnd() {
+      visualizeBuzzer(200);
+      playBeep(2400, 200);
+      setTimeout(() => {
+        visualizeBuzzer(200);
+        playBeep(2400, 200);
+      }, 400);
+    }
+
+    function playClickSound() {
+      if (hardware.audioMuted) return;
+      try {
+        initAudio();
+        const osc = hardware.audioCtx.createOscillator();
+        const gain = hardware.audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, hardware.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, hardware.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, hardware.audioCtx.currentTime + 0.04);
+        osc.connect(gain);
+        gain.connect(hardware.audioCtx.destination);
+        osc.start();
+        osc.stop(hardware.audioCtx.currentTime + 0.04);
+      } catch (e) {}
+    }
+
+    function visualizeBuzzer(durationMs) {
+      const buzzerBody = document.getElementById('buzzer-body');
+      const buzzerWave = document.getElementById('buzzer-wave');
+      const buzzerLabel = document.getElementById('buzzer-label');
+      const pinD14 = document.getElementById('pin-d14');
+
+      if (buzzerBody) buzzerBody.classList.add('bg-purple-600', 'text-white');
+      if (buzzerWave) buzzerWave.classList.remove('hidden');
+      if (buzzerLabel) buzzerLabel.textContent = 'BEEPING';
+      if (pinD14) {
+        pinD14.textContent = 'D14: HIGH';
+        pinD14.className = 'px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold border border-purple-200';
+      }
+
+      setTimeout(() => {
+        if (buzzerBody) buzzerBody.classList.remove('bg-purple-600', 'text-white');
+        if (buzzerWave) buzzerWave.classList.add('hidden');
+        if (buzzerLabel) buzzerLabel.textContent = 'IDLE';
+        if (pinD14) {
+          pinD14.textContent = 'D14: LOW';
+          pinD14.className = 'px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200';
+        }
+      }, durationMs);
+    }
+
+    function toggleSound() {
+      hardware.audioMuted = !hardware.audioMuted;
+      const text = document.getElementById('sound-text');
+      const icon = document.getElementById('sound-icon');
+      if (text) text.textContent = hardware.audioMuted ? 'Audio OFF' : 'Audio ON';
+      if (icon) icon.setAttribute('data-lucide', hardware.audioMuted ? 'volume-x' : 'volume-2');
+      lucide.createIcons();
+    }
+
+    // --- Wi-Fi Packet Logger ---
+    function logWifiPacket(dir, endpoint, payload, status) {
+      const feed = document.getElementById('wifi-packet-feed');
+      const countEl = document.getElementById('wifi-packet-count');
+      if (!feed) return;
+
+      hardware.packetCount++;
+      if (countEl) countEl.textContent = `${hardware.packetCount} Packets`;
+
+      const timeStr = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs space-y-1 transition-all';
+      div.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="px-1.5 py-0.2 rounded font-bold text-[9px] ${dir === 'RX' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">${dir} POST</span>
+            <span class="text-slate-800 font-bold">${endpoint}</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+        </div>
+        <div class="text-[10px] text-slate-500 font-mono truncate">${typeof payload === 'string' ? payload : JSON.stringify(payload)}</div>
+        <div class="flex justify-between items-center text-[10px] pt-0.5">
+          <span class="text-slate-400">Node: ${hardware.nodeIp || '172.27.195.199'}</span>
+          <span class="font-bold ${status.includes('200') || status.includes('OK') ? 'text-emerald-700' : 'text-amber-600'}">${status}</span>
+        </div>
+      `;
+
+      feed.insertBefore(div, feed.firstChild);
+      if (feed.children.length > 8) {
+        feed.removeChild(feed.lastChild);
+      }
+
+      // Update WiFi top HUD
+      const tEl = document.getElementById('wifi-last-time');
+      if (tEl) tEl.textContent = timeStr;
+    }
+
+    // --- Serial Console Logging ---
+    let serialLines = 0;
+    function serialPrint(str, addNewline = true) {
+      const term = document.getElementById('serial-terminal');
+      if (!term) return;
+      const line = document.createElement('div');
+      line.className = 'leading-tight text-emerald-400';
+      line.textContent = str;
+      term.appendChild(line);
+      serialLines++;
+      const countEl = document.getElementById('serial-line-count');
+      if (countEl) countEl.textContent = `Lines: ${serialLines}`;
+      const chk = document.getElementById('chk-autoscroll');
+      if (chk && chk.checked) {
+        term.scrollTop = term.scrollHeight;
+      }
+    }
+
+    function clearSerialConsole() {
+      const term = document.getElementById('serial-terminal');
+      if (term) term.innerHTML = '';
+      serialLines = 0;
+      const countEl = document.getElementById('serial-line-count');
+      if (countEl) countEl.textContent = 'Lines: 0';
+    }
+
+    function copySerialLog() {
+      const term = document.getElementById('serial-terminal');
+      if (term) {
+        navigator.clipboard.writeText(term.innerText).then(() => {
+          alert('Serial log copied to clipboard!');
+        });
+      }
+    }
+
+    // --- Flashed ESP32 Boot Banner (setup()) ---
+    function runSetupBanner() {
+      clearSerialConsole();
+      serialPrint("Connecting to WiFi.....");
+      setTimeout(() => {
+        serialPrint("WiFi connected!");
+        serialPrint("ESP32 IP: " + (hardware.nodeIp || "172.27.195.199"));
+        serialPrint("");
+        serialPrint("==============================");
+        serialPrint("   SMART EQUIPMENT FINDER");
+        serialPrint("==============================");
+        serialPrint("");
+        serialPrint("RFID + PIR + 2 BUTTONS");
+        serialPrint("");
+        serialPrint("RC522 ready.");
+        serialPrint("Scan an RFID card...");
+      }, 300);
+
+      setGreenLed(true);
+      setRedLed(false);
+      updateHardwareStateUI();
+    }
+
+    function resetHardware() {
+      serialPrint("");
+      serialPrint("[RESET] RST Pin 27 Pulsed LOW -> ESP32 Rebooting...");
+      hardware.selectedEquipment = "";
+      hardware.selectedId = "";
+      hardware.equipmentInUse = false;
+      hardware.temporarilyWaiting = false;
+      hardware.motionTimerRunning = false;
+      hardware.motionStartTime = 0;
+      hardware.usageStartTime = 0;
+      clearInterval(hardware.usageTimerInterval);
+      clearInterval(hardware.motionInterval);
+
+      const tx = document.getElementById('esp32-tx-led');
+      if (tx) tx.classList.add('animate-ping');
+      setTimeout(() => {
+        if (tx) tx.classList.remove('animate-ping');
+        runSetupBanner();
+      }, 800);
+    }
+
+    // --- LED Output Controllers ---
+    function setGreenLed(isOn) {
+      const led = document.getElementById('led-green');
+      const label = document.getElementById('led-green-label');
+      const pin = document.getElementById('pin-d26');
+      if (isOn) {
+        if (led) { led.className = 'w-10 h-10 rounded-full bg-emerald-500 led-green-glow border-2 border-emerald-300 transition-all duration-200 my-1'; }
+        if (label) { label.textContent = 'HIGH (ON)'; label.className = 'text-[11px] font-bold text-emerald-700 font-mono mt-1'; }
+        if (pin) { pin.textContent = 'D26: HIGH'; pin.className = 'px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200'; }
+      } else {
+        if (led) { led.className = 'w-10 h-10 rounded-full bg-slate-200 led-off border-2 border-slate-300 transition-all duration-200 my-1'; }
+        if (label) { label.textContent = 'LOW (OFF)'; label.className = 'text-[11px] font-bold text-slate-400 font-mono mt-1'; }
+        if (pin) { pin.textContent = 'D26: LOW'; pin.className = 'px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200'; }
+      }
+    }
+
+    function setRedLed(isOn) {
+      const led = document.getElementById('led-red');
+      const label = document.getElementById('led-red-label');
+      const pin = document.getElementById('pin-d25');
+      if (isOn) {
+        if (led) { led.className = 'w-10 h-10 rounded-full bg-rose-500 led-red-glow border-2 border-rose-300 transition-all duration-200 my-1'; }
+        if (label) { label.textContent = 'HIGH (ON)'; label.className = 'text-[11px] font-bold text-rose-700 font-mono mt-1'; }
+        if (pin) { pin.textContent = 'D25: HIGH'; pin.className = 'px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold border border-rose-200'; }
+      } else {
+        if (led) { led.className = 'w-10 h-10 rounded-full bg-slate-200 led-off border-2 border-slate-300 transition-all duration-200 my-1'; }
+        if (label) { label.textContent = 'LOW (OFF)'; label.className = 'text-[11px] font-bold text-slate-400 font-mono mt-1'; }
+        if (pin) { pin.textContent = 'D25: LOW'; pin.className = 'px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200'; }
+      }
+    }
+
+    function showHwInstructionBanner(msg = "Equipment is currently in use. End usage before temporary waiting.") {
+      const banner = document.getElementById('hw-instruction-banner');
+      const textEl = document.getElementById('hw-instruction-text');
+      if (textEl && msg) textEl.textContent = msg;
+      if (banner) {
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+      }
+    }
+
+    function dismissHwInstructionBanner() {
+      const banner = document.getElementById('hw-instruction-banner');
+      if (banner) {
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+      }
+    }
+
+    let redBlinkTimeout = null;
+    function triggerRedLedBlink(durationMs = 3800) {
+      const led = document.getElementById('led-red');
+      const label = document.getElementById('led-red-label');
+      const pin = document.getElementById('pin-d25');
+
+      if (redBlinkTimeout) {
+        clearTimeout(redBlinkTimeout);
+        redBlinkTimeout = null;
+      }
+
+      if (led) {
+        led.className = 'w-10 h-10 rounded-full led-red-blinking border-2 border-rose-300 transition-all duration-200 my-1';
+      }
+      if (label) {
+        label.textContent = 'BLINKING (ALERT)';
+        label.className = 'text-[11px] font-bold text-rose-700 font-mono mt-1 animate-pulse';
+      }
+      if (pin) {
+        pin.textContent = 'D25: BLINKING';
+        pin.className = 'px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold border border-rose-300 animate-pulse';
+      }
+
+      showHwInstructionBanner("Equipment is currently in use. End usage before temporary waiting.");
+
+      redBlinkTimeout = setTimeout(() => {
+        redBlinkTimeout = null;
+        setRedLed(false);
+        dismissHwInstructionBanner();
+      }, durationMs);
+    }
+
+    // --- HTTP POST Warning to Backend (`sendEquipmentWarning()`) ---
+    async function sendEquipmentWarning(equipmentName, warningMsg) {
+      const urlInput = document.getElementById('input-server-url');
+      const targetUrl = (urlInput && urlInput.value.trim()) ? urlInput.value.trim() : SERVER_URL;
+
+      const jsonPayload = {
+        equipment: equipmentName,
+        status: "IN_USE",
+        event: "TEMP_WAIT_BLOCKED",
+        warning: warningMsg,
+        red_led: "BLINKING"
+      };
+
+      const tx = document.getElementById('esp32-tx-led');
+      if (tx) {
+        tx.classList.add('bg-cyan-300', 'shadow-lg');
+        setTimeout(() => tx.classList.remove('bg-cyan-300', 'shadow-lg'), 250);
+      }
+
+      try {
+        const res = await fetch(`${targetUrl}/api/esp32/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jsonPayload)
+        });
+        logWifiPacket('TX', '/api/esp32/update', jsonPayload, `${res.status} Alert`);
+      } catch (err) {
+        logWifiPacket('TX', '/api/esp32/update', jsonPayload, 'Local Broadcast');
+      }
+    }
+
+    // --- HTTP POST to Backend (`sendEquipmentUpdate()`) ---
+    async function sendEquipmentUpdate(equipmentName, status, event = "", pir = undefined, motionSeconds = undefined, distanceMeters = undefined, location = undefined, waypoint = undefined) {
+      const urlInput = document.getElementById('input-server-url');
+      const targetUrl = (urlInput && urlInput.value.trim()) ? urlInput.value.trim() : SERVER_URL;
+
+      const jsonPayload = {
+        equipment: equipmentName,
+        status: status,
+        uid: hardware.selectedUid || "10 0D 71 5C",
+        source: "SIMULATOR"
+      };
+      if (event) jsonPayload.event = event;
+      if (location) jsonPayload.location = location;
+      if (waypoint) jsonPayload.waypoint = waypoint;
+      if (distanceMeters !== undefined) jsonPayload.distance_meters = distanceMeters;
+      if (pir !== undefined) {
+        jsonPayload.pir = !!pir;
+        jsonPayload.pir_state = pir ? "HIGH" : "LOW";
+      }
+      if (motionSeconds !== undefined) {
+        jsonPayload.motion_seconds = motionSeconds;
+      }
+
+      serialPrint("Sending to website via Wi-Fi:");
+      serialPrint(JSON.stringify(jsonPayload));
+
+      const tx = document.getElementById('esp32-tx-led');
+      if (tx) {
+        tx.classList.add('bg-cyan-300', 'shadow-lg');
+        setTimeout(() => tx.classList.remove('bg-cyan-300', 'shadow-lg'), 250);
+      }
+
+      try {
+        const res = await fetch(`${targetUrl}/api/esp32/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jsonPayload)
+        });
+
+        serialPrint(`Server response: ${res.status}`);
+        const data = await res.json();
+        logWifiPacket('TX', '/api/esp32/update', jsonPayload, `${res.status} ${res.statusText || 'OK'}`);
+
+        if (data.location) {
+          const locEl = document.getElementById('state-equipment-location');
+          if (locEl) locEl.textContent = data.location;
+        }
+
+        // Update live WiFi status HUD
+        const eqEl = document.getElementById('wifi-last-equipment');
+        const stEl = document.getElementById('wifi-last-status');
+        if (eqEl) eqEl.textContent = `${hardware.selectedId || equipmentName} (${equipmentName})`;
+        if (stEl) stEl.textContent = status;
+      } catch (err) {
+        serialPrint(`Server response: -1 (Connection error to ${targetUrl})`);
+        logWifiPacket('TX', '/api/esp32/update', jsonPayload, 'Network Error');
+      }
+    }
+
+    // --- RFID Scan Simulation (`checkRFID()`) ---
+    function simulateScanTag(uid, equipmentName, assetId) {
+      playClickSound();
+
+      serialPrint("");
+      serialPrint("==============================");
+      serialPrint("RFID CARD DETECTED");
+      serialPrint(`Card UID: ${uid}`);
+
+      // Check if session is IN_USE and this is a Hallway Waypoint Checkpoint
+      if (hardware.equipmentInUse) {
+        let wpName = "";
+        let wpDist = 0.0;
+        let wpKey = "";
+        let wpZone = "";
+
+        if (uid === "10 0D 71 5C") {
+          wpName = "Emergency Ward Dock Origin";
+          wpDist = 0.0;
+          wpKey = "ORIGIN_DOCK";
+          wpZone = "Emergency Ward";
+        } else if (uid === "40 0D 0F 58") {
+          wpName = "Central Corridor Junction";
+          wpDist = 15.0;
+          wpKey = "CORRIDOR_JUNCTION";
+          wpZone = "Clinical Transit Corridor";
+        } else if (uid === "30 94 2B 58") {
+          wpName = "Radiology Suite Arrival";
+          wpDist = 30.0;
+          wpKey = "RADIOLOGY_SUITE";
+          wpZone = "Radiology Suite";
+        } else if (uid === "BD 70 00 02") {
+          wpName = "ICU Recovery Ward";
+          wpDist = 45.0;
+          wpKey = "ICU_RECOVERY";
+          wpZone = "ICU Recovery Ward";
+        } else if (uid === "21 2F 7B 69") {
+          wpName = "General Ward Corridor";
+          wpDist = 22.5;
+          wpKey = "GENERAL_WARD";
+          wpZone = "General Ward Corridor";
+        }
+
+        if (wpName !== "") {
+          odometry.distanceMeters = wpDist;
+          odometry.speedMps = 1.1;
+          odometry.isMoving = true;
+          const cycleDist = 30.0;
+          const progress = Math.min(1.0, wpDist / cycleDist);
+          odometry.currentX = odometry.startPosX + (odometry.endPosX - odometry.startPosX) * progress;
+          updateOdometryUI();
+
+          serialPrint(`[WAYPOINT VERIFIED] ${wpName}`);
+          serialPrint(`Calibrated Distance: ${wpDist.toFixed(1)} m | Zone: ${wpZone}`);
+          serialPrint("==============================");
+
+          playBeep(2400, 100);
+          setTimeout(() => playBeep(2800, 150), 120);
+
+          sendEquipmentUpdate(hardware.selectedEquipment || "WHEELCHAIR", "IN_USE", "WAYPOINT_VERIFIED", undefined, undefined, wpDist, wpZone, wpKey);
+          return;
+        }
+      }
+
+      const readout = document.getElementById('rfid-active-readout');
+      const uidEl = document.getElementById('rfid-uid-readout');
+      const selEl = document.getElementById('rfid-selected-equipment');
+
+      const dropZone = document.getElementById('rfid-drop-zone');
+      if (dropZone) {
+        dropZone.classList.add('border-indigo-500', 'bg-indigo-100/60');
+        setTimeout(() => {
+          dropZone.classList.remove('border-indigo-500', 'bg-indigo-100/60');
+          dropZone.classList.add('border-indigo-300', 'bg-indigo-50/40');
+        }, 400);
+      }
+
+      let identified = "";
+      if (uid === "30 94 2B 58") identified = "MECHANICAL VENTILATOR";
+      else if (uid === "BD 70 00 02") identified = "STRETCHER";
+      else if (uid === "10 0D 71 5C") identified = "WHEELCHAIR";
+      else if (uid === "21 2F 7B 69") identified = "INFUSION PUMP";
+      else if (uid === "40 0D 0F 58") identified = "SMART ICU BED";
+
+      if (identified === "") {
+        hardware.selectedEquipment = "";
+        hardware.selectedId = "";
+        serialPrint("Unknown equipment.");
+        serialPrint("==============================");
+        if (readout) readout.textContent = "Unknown RFID Tag";
+        if (uidEl) uidEl.textContent = `UID: ${uid} (Not registered in firmware)`;
+        if (selEl) selEl.textContent = "NONE";
+        updateHardwareStateUI();
+        return;
+      }
+
+      hardware.selectedEquipment = identified;
+      hardware.selectedId = assetId;
+      hardware.selectedUid = uid;
+      hardware.equipmentInUse = false;
+      hardware.temporarilyWaiting = false;
+      hardware.motionTimerRunning = false;
+      hardware.motionStartTime = 0;
+      resetPirGauge();
+      setPirMotionState(false);
+      clearInterval(hardware.usageTimerInterval);
+
+      if (readout) readout.textContent = `${identified} (${assetId})`;
+      if (uidEl) uidEl.textContent = `Card UID: ${uid} • Registered Asset`;
+      if (selEl) selEl.textContent = identified;
+
+      hardware.rfidScanTime = Date.now();
+
+      serialPrint("");
+      serialPrint("==============================");
+      serialPrint("RFID CARD DETECTED");
+      serialPrint(`Card UID: ${uid}`);
+      serialPrint(`Equipment: ${identified}`);
+      serialPrint("Status: INITIALIZED");
+      serialPrint("Waiting 3 seconds before activating motion detection...");
+      serialPrint("==============================");
+
+      sendEquipmentUpdate(hardware.selectedEquipment, "AVAILABLE", "RFID_SCAN", false, 0.0);
+
+      setGreenLed(true);
+      setRedLed(false);
+
+      updateHardwareStateUI();
+    }
+
+    // --- Phase 3: Wheelchair Storage Return Simulation ---
+    async function simulateWheelchairStorageReturn() {
+      playClickSound();
+
+      hardware.selectedEquipment = "WHEELCHAIR";
+      hardware.selectedId = "WC-007";
+      hardware.selectedUid = "10 0D 71 5C";
+
+      serialPrint("");
+      serialPrint("==============================");
+      serialPrint("RFID CARD DETECTED AT WHEELCHAIR STORAGE");
+      serialPrint("Card UID: 10 0D 71 5C");
+      serialPrint("Equipment: WHEELCHAIR (WC-007)");
+      serialPrint("Location: Radiology Wheelchair Storage");
+      serialPrint("Status: RETURNING TO STORAGE");
+      serialPrint("Starting 2-minute verification countdown (120s)...");
+      serialPrint("==============================");
+
+      visualizeBuzzer(150);
+      playBeep(2400, 150);
+
+      const urlInput = document.getElementById('input-server-url');
+      const targetUrl = (urlInput && urlInput.value.trim()) ? urlInput.value.trim() : SERVER_URL;
+
+      try {
+        const res = await fetch(`${targetUrl}/api/equipment/wheelchair-storage/trigger`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ equipment_id: 'WC-007', duration_seconds: 120 })
+        });
+        const data = await res.json();
+        logWifiPacket('TX', '/api/equipment/wheelchair-storage/trigger', { equipment_id: 'WC-007' }, `${res.status} OK`);
+        if (res.ok) {
+          serialPrint("Server response: 200 OK");
+          serialPrint("Wheelchair return session successfully verified live.");
+          setGreenLed(true);
+          setRedLed(false);
+        } else {
+          serialPrint(`Server response error: ${data.error || 'Transition denied'}`);
+        }
+      } catch (e) {
+        serialPrint(`Connection error: ${e.message}`);
+      }
+    }
+
+    // --- Start Usage (`startUsage()`) ---
+    function startUsage(automaticStart) {
+      hardware.equipmentInUse = true;
+      hardware.temporarilyWaiting = false;
+      hardware.usageStartTime = Date.now();
+
+      serialPrint("");
+      serialPrint("==============================");
+      if (automaticStart) {
+        serialPrint("AUTO USE STARTED");
+      } else {
+        serialPrint("USE STARTED");
+      }
+
+      serialPrint(`Equipment: ${hardware.selectedEquipment}`);
+      serialPrint("PIR monitoring is active.");
+      serialPrint("Maximum usage time: 30 minutes.");
+      serialPrint("==============================");
+
+      sendEquipmentUpdate(
+        hardware.selectedEquipment,
+        "IN_USE",
+        automaticStart ? "AUTO_USE_STARTED" : "BUTTON_USE_STARTED",
+        automaticStart, // pir state
+        automaticStart ? 10.0 : 0.0 // motion_seconds
+      );
+
+      setGreenLed(true);
+      setRedLed(false);
+
+      playBuzzerStart();
+
+      startUsageStopwatch();
+      updateHardwareStateUI();
+    }
+
+    // --- End Usage (`endUsage()`) ---
+    function endUsage(automaticEnd) {
+      hardware.equipmentInUse = false;
+      clearInterval(hardware.usageTimerInterval);
+      resetDistanceOdometry();
+
+      serialPrint("");
+      serialPrint("==============================");
+      if (automaticEnd) {
+        serialPrint("AUTO USE ENDED");
+      } else {
+        serialPrint("USE ENDED");
+      }
+
+      serialPrint(`Equipment: ${hardware.selectedEquipment}`);
+      sendEquipmentUpdate(hardware.selectedEquipment, "AVAILABLE", automaticEnd ? "AUTO_USE_ENDED" : "BUTTON_USE_ENDED");
+      serialPrint("==============================");
+
+      setGreenLed(false);
+      setRedLed(true);
+
+      playBuzzerEnd();
+
+      setTimeout(() => {
+        setRedLed(false);
+        setGreenLed(true);
+
+        serialPrint("");
+        serialPrint(`Equipment: ${hardware.selectedEquipment} is ready.`);
+        serialPrint("Switch 1 (D33): Start / End Usage.");
+        serialPrint("Switch 2 (D13): Temporary Waiting.");
+        updateHardwareStateUI();
+      }, 1000);
+
+      updateHardwareStateUI();
+    }
+
+    // --- Temporary Waiting Toggle (`toggleTemporaryWaiting()`) ---
+    function toggleTemporaryWaiting() {
+      if (!hardware.selectedEquipment) {
+        hardware.selectedEquipment = "WHEELCHAIR";
+        hardware.selectedId = "WC-007";
+        hardware.selectedUid = "10 0D 71 5C";
+      }
+
+      if (hardware.equipmentInUse) {
+        serialPrint("");
+        serialPrint("==============================");
+        serialPrint("WARNING: OPERATION BLOCKED");
+        serialPrint("Equipment is currently in use.");
+        serialPrint("End usage with Switch 1 before temporary waiting.");
+        serialPrint("==============================");
+        triggerRedLedBlink(2800);
+        sendEquipmentWarning(hardware.selectedEquipment, "Equipment is currently in use. End usage before temporary waiting.");
+        return;
+      }
+
+      if (!hardware.temporarilyWaiting) {
+        hardware.temporarilyWaiting = true;
+        hardware.motionTimerRunning = false;
+        hardware.motionStartTime = 0;
+        resetPirGauge();
+
+        serialPrint("");
+        serialPrint("==============================");
+        serialPrint("TEMPORARILY WAITING (PAUSED)");
+        serialPrint(`Equipment: ${hardware.selectedEquipment}`);
+        serialPrint("Status: TEMPORARY_HOLD");
+        serialPrint("PIR automatic start is paused.");
+        serialPrint("Press Switch 2 again to return to AVAILABLE.");
+        serialPrint("==============================");
+
+        setGreenLed(true);
+        setRedLed(false);
+
+        sendEquipmentUpdate(hardware.selectedEquipment, "TEMPORARY_HOLD", "TEMPORARY_HOLD");
+      } else {
+        hardware.temporarilyWaiting = false;
+
+        serialPrint("");
+        serialPrint("==============================");
+        serialPrint("TEMPORARY WAITING ENDED");
+        serialPrint(`Equipment: ${hardware.selectedEquipment}`);
+        serialPrint("Status: AVAILABLE");
+        serialPrint("Equipment is READY.");
+        serialPrint("==============================");
+
+        setGreenLed(true);
+        setRedLed(false);
+
+        sendEquipmentUpdate(hardware.selectedEquipment, "AVAILABLE", "TEMPORARY_HOLD_ENDED");
+      }
+
+      updateHardwareStateUI();
+    }
+
+    // --- Main Button Switch 1 (Pin 33) ---
+    function pressMainButton() {
+      playClickSound();
+      const pinD33 = document.getElementById('pin-d33');
+      if (pinD33) {
+        pinD33.textContent = 'D33: LOW';
+        setTimeout(() => pinD33.textContent = 'D33: HIGH', 200);
+      }
+
+      if (!hardware.selectedEquipment) {
+        hardware.selectedEquipment = "WHEELCHAIR";
+        hardware.selectedId = "WC-007";
+        hardware.selectedUid = "10 0D 71 5C";
+      }
+
+      if (!hardware.equipmentInUse) {
+        if (hardware.temporarilyWaiting) {
+          serialPrint("");
+          serialPrint("[SWITCH 1] Equipment is in temporary waiting. Press Switch 2 (D13) to resume first.");
+        } else {
+          hardware.motionTimerRunning = false;
+          hardware.motionStartTime = 0;
+          resetPirGauge();
+          startUsage(false);
+        }
+      } else {
+        endUsage(false);
+      }
+    }
+
+    // --- Temp Button Switch 2 (Pin 13) ---
+    function pressTempButton() {
+      playClickSound();
+      const pinD13 = document.getElementById('pin-d13');
+      if (pinD13) {
+        pinD13.textContent = 'D13: LOW';
+        setTimeout(() => pinD13.textContent = 'D13: HIGH', 200);
+      }
+      if (!hardware.selectedEquipment) {
+        hardware.selectedEquipment = "WHEELCHAIR";
+        hardware.selectedId = "WC-007";
+        hardware.selectedUid = "10 0D 71 5C";
+      }
+      toggleTemporaryWaiting();
+    }
+
+    // --- PIR Motion Sensor Logic (`checkMotion()`) ---
+    function updatePirGauge(secs) {
+      const bar = document.getElementById('pir-progress-bar');
+      const text = document.getElementById('pir-timer-readout');
+      const val = Math.min(10.0, Math.max(0, parseFloat(secs) || 0));
+      const pct = Math.min(100, Math.max(0, (val / 10.0) * 100));
+      if (bar) bar.style.width = `${pct}%`;
+      if (text) text.textContent = `${val.toFixed(1)}s / 10.0s`;
+    }
+
+    function resetPirGauge() {
+      const bar = document.getElementById('pir-progress-bar');
+      const text = document.getElementById('pir-timer-readout');
+      if (bar) bar.style.width = '0%';
+      if (text) text.textContent = '0.0s / 10.0s';
+    }
+
+    function setPirMotionState(isHigh) {
+      const pin = document.getElementById('pin-d32');
+      const pinLvl = document.getElementById('pir-pin-level');
+
+      if (isHigh) {
+        if (pin) { pin.textContent = 'D32: HIGH'; pin.className = 'px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200'; }
+        if (pinLvl) { pinLvl.textContent = 'PIN: HIGH (DETECTED)'; pinLvl.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold'; }
+      } else {
+        if (pin) { pin.textContent = 'D32: LOW'; pin.className = 'px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200'; }
+        if (pinLvl) { pinLvl.textContent = 'PIN: LOW'; pinLvl.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold'; }
+      }
+
+      if (hardware.selectedEquipment === "") {
+        hardware.motionTimerRunning = false;
+        hardware.motionStartTime = 0;
+        resetPirGauge();
+        return;
+      }
+
+      if (hardware.temporarilyWaiting) {
+        hardware.motionTimerRunning = false;
+        hardware.motionStartTime = 0;
+        resetPirGauge();
+        return;
+      }
+
+      if (isHigh) {
+        if (hardware.pirGraceTimeout) {
+          clearTimeout(hardware.pirGraceTimeout);
+          hardware.pirGraceTimeout = null;
+        }
+
+        if (!hardware.motionTimerRunning && !hardware.equipmentInUse) {
+          if (Date.now() - (hardware.rfidScanTime || 0) < 3000) {
+            serialPrint("[PIR] Waiting 3 seconds after RFID scan before activating motion detection...");
+            return;
+          }
+
+          hardware.motionTimerRunning = true;
+          hardware.motionStartTime = Date.now();
+          hardware._lastPirSecReported = 0;
+
+          serialPrint("[PIR] Motion detected (~4cm). Monitoring for 10s continuous motion...");
+
+          clearInterval(hardware.motionInterval);
+          hardware.motionInterval = setInterval(checkPirInterval, 100);
+        }
+      } else {
+        if (hardware.motionTimerRunning && !hardware.pirGraceTimeout) {
+          hardware.pirGraceTimeout = setTimeout(() => {
+            hardware.motionTimerRunning = false;
+            hardware.motionStartTime = 0;
+            hardware._lastPirSecReported = 0;
+            clearInterval(hardware.motionInterval);
+            resetPirGauge();
+
+            serialPrint("[PIR] Motion stopped (hand removed >2s). Auto-start timer reset.");
+
+            hardware.pirGraceTimeout = null;
+          }, 2000);
+        }
+      }
+    }
+
+    function checkPirInterval() {
+      if (!hardware.motionTimerRunning) return;
+      const elapsed = Date.now() - hardware.motionStartTime;
+
+      updatePirGauge(elapsed / 1000);
+
+      if (elapsed >= hardware.REQUIRED_MOTION_TIME) {
+        clearInterval(hardware.motionInterval);
+        hardware.motionTimerRunning = false;
+        hardware.motionStartTime = 0;
+        hardware._lastPirSecReported = 0;
+        updatePirGauge(10.0);
+
+        serialPrint("");
+        serialPrint("==========================================");
+        serialPrint("[PIR] 10 seconds continuous motion detected!");
+        serialPrint(`Equipment: ${hardware.selectedEquipment} is now IN USE / ACTIVE.`);
+        serialPrint("==========================================");
+
+        startUsage(true);
+      }
+    }
+
+    function toggleContinuousMotion() {
+      hardware.isContinuousMotion = !hardware.isContinuousMotion;
+      const btn = document.getElementById('btn-pir-toggle');
+      if (btn) {
+        if (hardware.isContinuousMotion) {
+          btn.className = 'px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold transition shadow-xs';
+          btn.textContent = 'Motion ACTIVE (Continuous)';
+          setPirMotionState(true);
+        } else {
+          btn.className = 'px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition';
+          btn.textContent = 'Toggle Continuous';
+          setPirMotionState(false);
+        }
+      }
+    }
+
+    // Setup Hold-To-Move Button
+    const holdBtn = document.getElementById('btn-pir-hold');
+    if (holdBtn) {
+      holdBtn.addEventListener('mousedown', () => {
+        if (!hardware.isContinuousMotion) setPirMotionState(true);
+      });
+      holdBtn.addEventListener('mouseup', () => {
+        if (!hardware.isContinuousMotion) setPirMotionState(false);
+      });
+      holdBtn.addEventListener('mouseleave', () => {
+        if (!hardware.isContinuousMotion) setPirMotionState(false);
+      });
+      holdBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!hardware.isContinuousMotion) setPirMotionState(true);
+      });
+      holdBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (!hardware.isContinuousMotion) setPirMotionState(false);
+      });
+    }
+
+    // --- Usage Stopwatch & Max Timer Guard (`checkUsageTimer()`) ---
+    function startUsageStopwatch() {
+      clearInterval(hardware.usageTimerInterval);
+      hardware.usageTimerInterval = setInterval(() => {
+        if (!hardware.equipmentInUse || hardware.selectedEquipment === "") return;
+        const elapsedMs = Date.now() - hardware.usageStartTime;
+        const totalSecs = Math.floor(elapsedMs / 1000);
+        const hrs = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+        const secs = String(totalSecs % 60).padStart(2, '0');
+
+        const clockEl = document.getElementById('usage-stopwatch');
+        if (clockEl) clockEl.textContent = `${hrs}:${mins}:${secs}`;
+
+        if (elapsedMs >= hardware.MAX_USE_TIME) {
+          serialPrint("");
+          serialPrint("Maximum usage time reached.");
+          serialPrint("Automatically ending usage...");
+          endUsage(true);
+        }
+      }, 1000);
+    }
+
+    function fastForwardUsage() {
+      if (!hardware.equipmentInUse) {
+        alert('Start equipment usage first (Switch 1 or PIR motion) to test the 30-minute auto-cutoff.');
+        return;
+      }
+      serialPrint("");
+      serialPrint("[TEST TOOL] Fast-forwarding 30 minutes into usage session...");
+      hardware.usageStartTime = Date.now() - hardware.MAX_USE_TIME;
+    }
+
+    function updateConnectionStatus(isConnected) {
+      const backendBadge = document.getElementById('backend-status-badge');
+      const backendDot = document.getElementById('backend-status-dot');
+      const backendText = document.getElementById('backend-status-text');
+
+      const wsBadge = document.getElementById('ws-status-badge');
+      const wsDot = document.getElementById('ws-status-dot');
+      const wsText = document.getElementById('ws-status-text');
+
+      if (isConnected) {
+        if (backendBadge) backendBadge.className = 'text-emerald-700 font-bold flex items-center space-x-1.5';
+        if (backendDot) backendDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        if (backendText) backendText.textContent = 'ONLINE';
+
+        if (wsBadge) wsBadge.className = 'text-emerald-700 font-bold flex items-center space-x-1.5';
+        if (wsDot) wsDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        if (wsText) wsText.textContent = 'CONNECTED';
+      } else {
+        if (backendBadge) backendBadge.className = 'text-rose-700 font-bold flex items-center space-x-1.5';
+        if (backendDot) backendDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+        if (backendText) backendText.textContent = 'OFFLINE';
+
+        if (wsBadge) wsBadge.className = 'text-rose-700 font-bold flex items-center space-x-1.5';
+        if (wsDot) wsDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+        if (wsText) wsText.textContent = 'DISCONNECTED';
+      }
+    }
+
+    // --- Real-Time WebSocket Streaming Client ---
+    let hardwareWs = null;
+    let wsReconnectTimer = null;
+
+    function initWebSocket() {
+      if (hardwareWs) {
+        try { hardwareWs.close(); } catch(e) {}
+      }
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+      try {
+        hardwareWs = new WebSocket(wsUrl);
+
+        hardwareWs.onopen = () => {
+          updateConnectionStatus(true);
+          console.log('[ESP32 Hardware Lab] Connected to real-time WebSocket:', wsUrl);
+          fetchLatestHardwareState();
+        };
+
+        hardwareWs.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleIncomingHardwareEvent(data);
+          } catch (err) {
+            console.error('Error parsing WS hardware packet:', err);
+          }
+        };
+
+        hardwareWs.onclose = () => {
+          updateConnectionStatus(false);
+          clearTimeout(wsReconnectTimer);
+          wsReconnectTimer = setTimeout(initWebSocket, 2500);
+        };
+
+        hardwareWs.onerror = () => {
+          updateConnectionStatus(false);
+        };
+      } catch (err) {
+        updateConnectionStatus(false);
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(initWebSocket, 2500);
+      }
+    }
+
+    // --- Live Event Processor for Real ESP32 Stream over Wi-Fi ---
+    function handleIncomingHardwareEvent(data, printLogs = true) {
+      if (!data) return;
+
+      const isHw = (
+        data.type === 'ESP32_HARDWARE_UPDATE' ||
+        data.type === 'ESP32_EQUIPMENT_UPDATE' ||
+        data.type === 'RFID_SCAN_EVENT' ||
+        data.type === 'ESP32_TELEMETRY' ||
+        data.source === 'ESP32_HARDWARE' ||
+        data.equipment !== undefined ||
+        data.equipment_id !== undefined
+      );
+      if (!isHw) return;
+
+      updateConnectionStatus(true);
+
+      // Handle pure serial log packets forwarded from ESP32 via backend /api/esp32/log
+      if (data.serial_logs && Array.isArray(data.serial_logs) && !data.status && !data.equipment) {
+        data.serial_logs.forEach(l => {
+          if (l) serialPrint(l);
+        });
+        return;
+      }
+
+      const uid = data.uid || (data.data && data.data.uid) || hardware.selectedUid || '10 0D 71 5C';
+      let equipment = data.equipment || data.equipment_name || (data.data && data.data.equipment) || '';
+      const equipmentId = data.equipment_id || (data.data && data.data.equipment_id) || '';
+      const rawStatus = data.status || (data.data && data.data.status);
+      const status = rawStatus ? rawStatus.toUpperCase() : (hardware.equipmentInUse ? 'IN_USE' : 'AVAILABLE');
+      const location = data.location || (data.data && data.data.location) || 'Emergency Ward';
+      const esp32Ip = data.esp32_ip || '172.27.195.51';
+
+      if (!equipment && equipmentId) {
+        if (equipmentId === 'VENT-04') equipment = 'MECHANICAL VENTILATOR';
+        else if (equipmentId === 'WC-007') equipment = 'WHEELCHAIR';
+        else if (equipmentId === 'ST-003') equipment = 'STRETCHER';
+        else if (equipmentId === 'INF-03') equipment = 'INFUSION PUMP';
+        else if (equipmentId === 'BD-ICU-01') equipment = 'SMART ICU BED';
+        else equipment = equipmentId;
+      }
+      if (!equipment) equipment = 'WHEELCHAIR';
+
+      hardware.selectedEquipment = equipment;
+      hardware.selectedId = equipmentId || 'WC-007';
+      hardware.selectedUid = uid;
+      hardware.equipmentInUse = (status === 'IN_USE');
+      hardware.temporarilyWaiting = (status === 'TEMPORARY_HOLD' || status === 'TEMPORARILY_WAITING' || !!data.temporary_waiting);
+
+      if (data.distance_meters !== undefined && data.distance_meters !== null) {
+        const d = parseFloat(data.distance_meters);
+        if (!isNaN(d)) odometry.distanceMeters = d;
+      }
+      if (data.rssi !== undefined && data.rssi !== null) {
+        odometry.rssi = parseInt(data.rssi);
+      }
+      if (data.speed_mps !== undefined && data.speed_mps !== null) {
+        const s = parseFloat(data.speed_mps);
+        if (!isNaN(s)) odometry.speedMps = s;
+      } else if (status !== 'IN_USE') {
+        odometry.speedMps = 0.0;
+      }
+
+      // Live real hardware telemetry takes precedence over manual browser demo interval
+      if (odometry.moveInterval) {
+        clearInterval(odometry.moveInterval);
+        odometry.moveInterval = null;
+      }
+
+      odometry.isMoving = (odometry.speedMps > 0.0 || !!data.moving);
+
+      // Directly update mini map coordinates based on REAL physical distance
+      const cycleDist = 30.0;
+      const rawProgress = (odometry.distanceMeters % (cycleDist * 2));
+      let progress = 0;
+      if (rawProgress <= cycleDist) {
+        progress = rawProgress / cycleDist;
+      } else {
+        progress = 1.0 - ((rawProgress - cycleDist) / cycleDist);
+      }
+      odometry.currentX = odometry.startPosX + (odometry.endPosX - odometry.startPosX) * progress;
+
+      if (status !== 'IN_USE') {
+        odometry.distanceMeters = 0.0;
+        odometry.speedMps = 0.0;
+        odometry.rssi = -42;
+        odometry.currentX = odometry.startPosX;
+        odometry.isMoving = false;
+      }
+      updateOdometryUI();
+
+      // Log to live Wi-Fi packet inspector
+      logWifiPacket('RX', '/api/esp32/update', { equipment: equipment, status: status, uid: uid }, '200 OK (Synced)');
+
+      hardware.nodeIp = esp32Ip;
+      const headerIp = document.getElementById('header-ip');
+      if (headerIp && esp32Ip) headerIp.textContent = esp32Ip;
+      const cardIp = document.getElementById('card-node-ip');
+      if (cardIp && esp32Ip) cardIp.textContent = esp32Ip;
+
+      // Update Top HUD
+      const eqEl = document.getElementById('wifi-last-equipment');
+      const stEl = document.getElementById('wifi-last-status');
+      if (eqEl) eqEl.textContent = `${equipmentId || hardware.selectedId} (${equipment})`;
+      if (stEl) stEl.textContent = status;
+
+      const readout = document.getElementById('rfid-active-readout');
+      const uidEl = document.getElementById('rfid-uid-readout');
+      const selEl = document.getElementById('rfid-selected-equipment');
+      const rfidStatus = document.getElementById('rfid-status-text');
+      const dropZone = document.getElementById('rfid-drop-zone');
+
+      if (readout) readout.textContent = `${equipment} (${equipmentId || hardware.selectedId})`;
+      if (uidEl) uidEl.textContent = `UID: ${uid} (Active on Wi-Fi)`;
+      if (selEl) selEl.textContent = equipment;
+      if (rfidStatus) {
+        rfidStatus.textContent = 'CARD SCANNED & ACTIVE';
+        rfidStatus.className = 'text-emerald-700 font-bold';
+      }
+      if (dropZone) {
+        dropZone.classList.add('border-indigo-500', 'bg-indigo-100/60');
+        setTimeout(() => {
+          dropZone.classList.remove('border-indigo-500', 'bg-indigo-100/60');
+          dropZone.classList.add('border-indigo-300', 'bg-indigo-50/40');
+        }, 400);
+      }
+
+      const badge = document.getElementById('badge-equipment-status');
+      const icon = document.getElementById('state-icon');
+      const nameEl = document.getElementById('state-equipment-name');
+      const idEl = document.getElementById('state-equipment-id');
+      const locEl = document.getElementById('state-equipment-location');
+
+      if (nameEl) nameEl.textContent = equipment;
+      if (idEl) idEl.textContent = `UID: ${uid} • Asset ID: ${equipmentId || hardware.selectedId}`;
+      if (locEl) locEl.textContent = location;
+
+      if (status === 'IN_USE') {
+        if (badge) {
+          badge.textContent = 'IN USE (ACTIVE CLINICAL SESSION)';
+          badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse';
+        }
+        if (icon) {
+          icon.textContent = '⚡';
+          icon.className = 'w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold text-xl shadow-2xs';
+        }
+      } else if (status === 'RETURNING_TO_STORAGE') {
+        if (badge) {
+          badge.textContent = 'RETURNING TO STORAGE (2-MIN VERIFICATION)';
+          badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 animate-pulse';
+        }
+        if (icon) {
+          icon.textContent = '♿';
+          icon.className = 'w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xl shadow-2xs';
+        }
+      } else if (status === 'TEMPORARY_HOLD' || hardware.temporarilyWaiting) {
+        if (badge) {
+          badge.textContent = 'TEMPORARY HOLD (PAUSED)';
+          badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200';
+        }
+        if (icon) {
+          icon.textContent = '⏸';
+          icon.className = 'w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-xl shadow-2xs';
+        }
+      } else {
+        if (badge) {
+          badge.textContent = 'AVAILABLE (READY)';
+          badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200';
+        }
+        if (icon) {
+          icon.textContent = '✓';
+          icon.className = 'w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xl shadow-2xs';
+        }
+      }
+
+      const isWarning = !!(
+        data.warning || 
+        data.event === 'TEMP_WAIT_BLOCKED' || 
+        data.event_type === 'TEMP_WAIT_BLOCKED' || 
+        data.red_led_state === 'BLINKING' || 
+        data.red_led === 'BLINKING'
+      );
+
+      if (isWarning) {
+        setGreenLed(true);
+        triggerRedLedBlink(4000);
+        showHwInstructionBanner(data.warning || "Equipment is currently in use. End usage before temporary waiting.");
+      } else {
+        const isGreenOn = (data.green_led !== undefined) ? !!data.green_led : (data.green_led_state ? data.green_led_state === 'HIGH' : true);
+        const isRedOn = (data.red_led !== undefined) ? !!data.red_led : (data.red_led_state ? data.red_led_state === 'HIGH' : false);
+        setGreenLed(isGreenOn);
+        setRedLed(isRedOn);
+      }
+
+      if (data.buzzer || data.buzzer_state === 'BEEPING') {
+        visualizeBuzzer(300);
+        playBeep(2400, 300);
+      } else if (data.type === 'RFID_SCAN_EVENT' || (uid && uid !== hardware._lastBeepUid)) {
+        hardware._lastBeepUid = uid;
+        visualizeBuzzer(80);
+        playBeep(2000, 80);
+      }
+
+      // PIR sensor reflects true hand proximity, never defaulted to status === 'IN_USE'
+      const isPirActive = (data.pir !== undefined) ? !!data.pir : (data.pir_state ? data.pir_state === 'HIGH' : false);
+      setPirMotionState(isPirActive);
+
+      // Handle live 10s auto-start motion timer gauge from real ESP32
+      if (data.motion_seconds !== undefined) {
+        updatePirGauge(parseFloat(data.motion_seconds));
+      } else if (data.event === 'PIR_MOTION_STOPPED' || (!isPirActive && !hardware.equipmentInUse)) {
+        resetPirGauge();
+      }
+
+      const pinD33 = document.getElementById('pin-d33');
+      if (pinD33) {
+        pinD33.textContent = status === 'IN_USE' ? 'D33: LOW (ACTIVE)' : 'D33: HIGH (IDLE)';
+      }
+
+      const pinD13 = document.getElementById('pin-d13');
+      if (pinD13) {
+        pinD13.textContent = hardware.temporarilyWaiting ? 'D13: LOW (PAUSED)' : 'D13: HIGH (IDLE)';
+      }
+
+      const timerSecs = parseInt(data.usage_timer || data.usage_time || 0);
+      const hrs = String(Math.floor(timerSecs / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((timerSecs % 3600) / 60)).padStart(2, '0');
+      const secs = String(timerSecs % 60).padStart(2, '0');
+      const clockEl = document.getElementById('usage-stopwatch');
+      if (clockEl) clockEl.textContent = `${hrs}:${mins}:${secs}`;
+
+      if (status === 'IN_USE') {
+        if (!hardware.usageTimerInterval) {
+          hardware.usageStartTime = Date.now() - (timerSecs * 1000);
+          startUsageStopwatch();
+        }
+      } else {
+        clearInterval(hardware.usageTimerInterval);
+        hardware.usageTimerInterval = null;
+      }
+
+      if (printLogs && data.serial_logs && Array.isArray(data.serial_logs)) {
+        const eventKey = `${data.timestamp || ''}_${data.event_type || ''}_${data.status || ''}`;
+        if (!hardware._printedEvents) hardware._printedEvents = new Set();
+        if (!hardware._printedEvents.has(eventKey)) {
+          hardware._printedEvents.add(eventKey);
+          if (hardware._printedEvents.size > 50) {
+            const arr = Array.from(hardware._printedEvents);
+            hardware._printedEvents = new Set(arr.slice(arr.length - 25));
+          }
+          data.serial_logs.forEach(l => serialPrint(l));
+        }
+      }
+
+      const tx = document.getElementById('esp32-tx-led');
+      if (tx) {
+        tx.classList.add('bg-cyan-300', 'shadow-lg');
+        setTimeout(() => tx.classList.remove('bg-cyan-300', 'shadow-lg'), 300);
+      }
+    }
+
+    // --- State Recovery from Backend on Load and Regular Poll ---
+    async function fetchLatestHardwareState(printLogs = false) {
+      try {
+        const res = await fetch('/api/esp32/hardware-state');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.equipment_id || data.equipment)) {
+            handleIncomingHardwareEvent(data, printLogs);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch latest hardware state:', err);
+      }
+    }
+
+    function updateHardwareStateUI() {
+      const badge = document.getElementById('badge-equipment-status');
+      const icon = document.getElementById('state-icon');
+      const name = document.getElementById('state-equipment-name');
+      const idEl = document.getElementById('state-equipment-id');
+
+      if (!hardware.selectedEquipment) {
+        if (badge) { badge.textContent = 'IDLE (NO CARD)'; badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200'; }
+        if (icon) { icon.textContent = '—'; icon.className = 'w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 border border-slate-200 flex items-center justify-center font-bold text-xl shadow-2xs'; }
+        if (name) name.textContent = 'No Equipment Selected';
+        if (idEl) idEl.textContent = 'Scan an RFID Tag to begin';
+        return;
+      }
+
+      if (hardware.equipmentInUse) {
+        if (badge) { badge.textContent = 'IN USE (ACTIVE CLINICAL SESSION)'; badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse'; }
+        if (icon) { icon.textContent = '⚡'; icon.className = 'w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold text-xl shadow-2xs'; }
+      } else if (hardware.temporarilyWaiting) {
+        if (badge) { badge.textContent = 'TEMPORARILY WAITING (PAUSED)'; badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200'; }
+        if (icon) { icon.textContent = '⏸'; icon.className = 'w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-xl shadow-2xs'; }
+      } else {
+        if (badge) { badge.textContent = 'AVAILABLE (READY)'; badge.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200'; }
+        if (icon) { icon.textContent = '✓'; icon.className = 'w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xl shadow-2xs'; }
+      }
+
+      if (name) name.textContent = hardware.selectedEquipment;
+      if (idEl) idEl.textContent = `UID: ${hardware.selectedUid || '10 0D 71 5C'} • Asset ID: ${hardware.selectedId || 'Auto-Detected'}`;
+    }
+
+    async function testServerConnection() {
+      const urlInput = document.getElementById('input-server-url');
+      const targetUrl = (urlInput && urlInput.value.trim()) ? urlInput.value.trim() : SERVER_URL;
+
+      try {
+        const res = await fetch(`${targetUrl}/api/blueprint`);
+        if (res.ok) {
+          updateConnectionStatus(true);
+          serialPrint(`[PING] Connected successfully to MediTrack backend over Wi-Fi at ${targetUrl}`);
+          logWifiPacket('TX', '/api/blueprint', { ping: true }, '200 OK (Ping Success)');
+        } else {
+          updateConnectionStatus(false);
+        }
+      } catch (e) {
+        updateConnectionStatus(false);
+        serialPrint(`[PING] Failed to reach backend at ${targetUrl}`);
+      }
+    }
+
+    // --- On Window Load ---
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      const urlInput = document.getElementById('input-server-url');
+      if (urlInput) urlInput.value = SERVER_URL;
+      runSetupBanner();
+      initWebSocket();
+      fetchLatestHardwareState(false);
+
+      // Recurring 2s polling fallback so no Wi-Fi packet is ever missed (silent without log spam)
+      setInterval(() => fetchLatestHardwareState(false), 2000);
+    });
+  </script>
+
+</body>
+</html>
