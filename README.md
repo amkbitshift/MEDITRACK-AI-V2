@@ -9,6 +9,10 @@
 
 ---
 
+LIVE DEMO: [https://meditrack-ai-v2-1.onrender.com](https://meditrack-ai-v2-1.onrender.com)
+
+---
+
 ## 🏗️ System Architecture
 
 ```text
