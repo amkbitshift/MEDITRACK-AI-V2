@@ -58,6 +58,10 @@ LIVE DEMO: [https://meditrack-ai-v2-1.onrender.com](https://meditrack-ai-v2-1.on
 | **Demand Forecasting** | Random Forest Diurnal Time-Series | Hour, day, triage influx, admissions | Hourly demand curves (+1h, +3h, +6h, +12h, +24h) | Predicts Emergency Wheelchair surge (4 → 7 units) |
 | **Vision AI** | YOLO Object Detection + Optical Counting | Camera video feed / CCTV | Bounding boxes, confidence, class counts | Flags inventory mismatch: DB=15 vs Camera=12 (-3 discrepancy) |
 | **Emergency Priority AI** | Multi-Variable Urgency Classifier | Patient urgency, ward urgency, fleet scarcity | Urgency Score (0–100) & Dispatch Action | Generates High Priority (94/100) for trauma surge |
+<img width="1920" height="1140" alt="Screenshot 2026-10-06 194154" src="https://github.com/user-attachments/assets/687b26c8-29b2-4e2c-bdfe-5ccc97885549" />
+<img width="1920" height="1140" alt="Screenshot 2026-10-06 194148" src="https://github.com/user-attachments/assets/06fec200-2cd9-4c8f-ac25-4400bb559fc5" />
+<img width="1920" height="1140" alt="Screenshot 2026-10-06 194213" src="https://github.com/user-attachments/assets/6dd56e77-5dc5-44d5-b0e6-18edc0b8319d" />
+<img width="1920" height="1140" alt="Screenshot 2026-10-06 194206" src="https://github.com/user-attachments/assets/9997f0d1-a77c-4866-8aaf-cc019af59330" />
 
 ---
 
